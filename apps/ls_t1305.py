@@ -10,6 +10,10 @@ from loguru import logger
 from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
 from dotenv import load_dotenv
 
+# Load .env from project root (one level up from apps/)
+dotenv_path = os.path.join(os.path.dirname(__file__), '..', '.env')
+load_dotenv(dotenv_path=dotenv_path)
+
 def _bool_env(name: str, default: bool = True) -> bool:
     val = os.environ.get(name)
     if val is None:
@@ -27,6 +31,7 @@ class LsOpenApiT1305:
         self.mac_address = os.environ.get("LS_MAC_ADDRESS", "")  # 법인 계정일 때만 필요
         self.mock = _bool_env("LS_MOCK", False)
 
+        print("LS keys: {} {}".format(self.app_key, self.app_secret))
         if not self.mock and (not self.app_key or not self.app_secret):
             raise RuntimeError("Missing LS_APP_KEY or LS_SECRET_KEY in environment. Please set them in your .env file.")
 
@@ -202,8 +207,6 @@ def write_csv(rows: List[Dict[str, Any]], path: str) -> None:
 
 
 def main(argv: list[str] | None = None) -> int:
-    dotenv_path = os.path.join(os.path.dirname(__file__), '..', '.env')
-    load_dotenv(dotenv_path=dotenv_path)
 
     p = argparse.ArgumentParser(description="Fetch period prices via t1305 and optionally save CSV")
     p.add_argument("--shcode", required=True, help="6-digit stock code (e.g., 005930)")

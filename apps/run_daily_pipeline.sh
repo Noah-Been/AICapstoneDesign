@@ -30,15 +30,15 @@ echo "[Step 2/5] Signal generation complete."
 
 # --- 3. Brokerage Reports ---
 echo "\n[Step 3/5] Collecting brokerage reports..."
-"$PYTHON_EXEC" "$APPS_DIR/run_mirae_pipeline.py" --date "$SNAPSHOT_DATE"
-"$PYTHON_EXEC" "$APPS_DIR/run_hanwha_pipeline.py" --date "$SNAPSHOT_DATE"
-"$PYTHON_EXEC" "$APPS_DIR/run_eugene_pipeline.py" --date "$SNAPSHOT_DATE"
-"$PYTHON_EXEC" "$APPS_DIR/run_samsung_pipeline.py" --date "$SNAPSHOT_DATE"
+# "$PYTHON_EXEC" "$APPS_DIR/run_mirae_pipeline.py" --date "$SNAPSHOT_DATE"
+# "$PYTHON_EXEC" "$APPS_DIR/run_hanwha_pipeline.py" --date "$SNAPSHOT_DATE"
+# "$PYTHON_EXEC" "$APPS_DIR/run_eugene_pipeline.py" --date "$SNAPSHOT_DATE"
+# "$PYTHON_EXEC" "$APPS_DIR/run_samsung_pipeline.py" --date "$SNAPSHOT_DATE"
 echo "[Step 3/5] Brokerage report collection complete."
 
 # --- 4. News and Blogs ---
 echo "\n[Step 4/5] Collecting news and blogs for Top N stocks..."
-bash "$APPS_DIR/run_top_crawl.sh"
+bash "$APPS_DIR/run_top_crawl.sh" || echo "Warning: Crawl incomplete, proceeding anyway..."
 echo "[Step 4/5] News and blog collection complete."
 
 # --- 5. Daily Report Generation ---

@@ -171,10 +171,10 @@ def write_topn_json(path: str, items: List[SignalResult], top_n: int) -> None:
 def main(argv: List[str] | None = None) -> int:
     p = argparse.ArgumentParser(description="Compute ranking signals from CSV prices and output JSONL + Top-N JSON")
     p.add_argument("--snapshot-date", default=os.environ.get("SNAPSHOT_DATE", ""), help="YYYY-MM-DD; default env SNAPSHOT_DATE")
-    p.add_argument("--prices-dir", default="/home/jinwoo0111/빅데이터캡디/mvp/data/snapshots/{date}/prices", help="Dir with {ticker}.csv files")
-    p.add_argument("--out-jsonl", default="/home/jinwoo0111/빅데이터캡디/mvp/data/snapshots/{date}/rank_signals.jsonl", help="Output JSONL path")
+    p.add_argument("--prices-dir", default="mvp/data/snapshots/{date}/prices", help="Dir with {ticker}.csv files")
+    p.add_argument("--out-jsonl", default="mvp/data/snapshots/{date}/rank_signals.jsonl", help="Output JSONL path")
     p.add_argument("--top-n", type=int, default=20, help="Top N count to export")
-    p.add_argument("--out-top", default="/home/jinwoo0111/빅데이터캡디/mvp/data/snapshots/{date}/topN.json", help="Top-N JSON output path")
+    p.add_argument("--out-top", default="mvp/data/snapshots/{date}/topN.json", help="Top-N JSON output path")
     p.add_argument("--lookback", type=int, default=60, help="Lookback bars for signals (default 60)")
     args = p.parse_args(argv)
 

@@ -280,8 +280,8 @@ def main(argv: List[str] | None = None) -> int:
 
     p = argparse.ArgumentParser(description="Collect Naver Blogs for Top N tickers and save JSONL per ticker")
     p.add_argument("--snapshot-date", default=os.environ.get("SNAPSHOT_DATE", ""), help="YYYY-MM-DD; default env SNAPSHOT_DATE or today")
-    p.add_argument("--data-dir", default="data", help="Dir containing KOSPI200/KOSDDAQ150 CSV for names")
-    p.add_argument("--outdir", default="data/snapshots/{date}/blogs", help="Output dir pattern")
+    p.add_argument("--data-dir", default="mvp/data", help="Dir containing KOSPI200/KOSDDAQ150 CSV for names")
+    p.add_argument("--outdir", default="mvp/data/snapshots/{date}/blogs", help="Output dir pattern")
     p.add_argument("--days", type=int, default=5, help="Window in days (default 5)")
     p.add_argument("--per-query", type=int, default=40, help="Max items per query (name/ticker)")
     p.add_argument("--topk", type=int, default=10, help="Max items per ticker after filtering (default 10)")
@@ -292,7 +292,7 @@ def main(argv: List[str] | None = None) -> int:
     args = p.parse_args(argv)
 
     date = args.snapshot_date or datetime.now(KST).date().isoformat()
-    top_file = os.path.join(args.data_dir, "snapshots", date, "topN.json")
+    top_file = os.path.join("mvp/data/snapshots", date, "topN.json")
     outdir = args.outdir.replace("{date}", date)
     names = load_name_map(args.data_dir)
 

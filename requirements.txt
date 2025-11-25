@@ -6,3 +6,4 @@ tenacity==8.5.0
 loguru==0.7.2
 pydantic==2.8.2
 pdfminer.six==20231228
+python-dotenv

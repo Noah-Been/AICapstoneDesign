@@ -6,10 +6,10 @@ if [[ -z "$SNAPSHOT_DATE" ]]; then
   SNAPSHOT_DATE=$(TZ=Asia/Seoul date +%F)
 fi
 
-TOP="$(pwd)/data/snapshots/${SNAPSHOT_DATE}/topN.json"
-DATA_DIR="$(pwd)/data"
-NEWS_OUT="$(pwd)/data/snapshots/${SNAPSHOT_DATE}/news_strict"
-BLOG_OUT="$(pwd)/data/snapshots/${SNAPSHOT_DATE}/blogs_strict"
+TOP="$(pwd)/mvp/data/snapshots/${SNAPSHOT_DATE}/topN.json"
+DATA_DIR="$(pwd)/mvp/data"
+NEWS_OUT="$(pwd)/mvp/data/snapshots/${SNAPSHOT_DATE}/news_strict"
+BLOG_OUT="$(pwd)/mvp/data/snapshots/${SNAPSHOT_DATE}/blogs_strict"
 
 PY="python"
 

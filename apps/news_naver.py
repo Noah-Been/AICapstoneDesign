@@ -19,6 +19,7 @@ KST = timezone(timedelta(hours=9))
 
 
 def load_top_tickers(top_file: str) -> List[str]:
+    
     with open(top_file, "r", encoding="utf-8") as f:
         arr = json.load(f)
     tickers = [str(x.get("ticker")) for x in arr if x.get("ticker")]
@@ -292,8 +293,8 @@ def main(argv: List[str] | None = None) -> int:
 
     p = argparse.ArgumentParser(description="Collect Naver News for Top N tickers and save JSONL per ticker")
     p.add_argument("--snapshot-date", default=os.environ.get("SNAPSHOT_DATE", ""), help="YYYY-MM-DD; default env SNAPSHOT_DATE or today")
-    p.add_argument("--data-dir", default="data", help="Dir containing KOSPI200/KOSDDAQ150 CSV for names")
-    p.add_argument("--outdir", default="data/snapshots/{date}/news", help="Output dir pattern")
+    p.add_argument("--data-dir", default="mvp/data", help="Dir containing KOSPI200/KOSDDAQ150 CSV for names")
+    p.add_argument("--outdir", default="mvp/data/snapshots/{date}/news", help="Output dir pattern")
     p.add_argument("--days", type=int, default=5, help="Window in days (default 5)")
     p.add_argument("--per-query", type=int, default=40, help="Max items per query (name/ticker)")
     p.add_argument("--topk", type=int, default=10, help="Max items per ticker after filtering (default 10)")
@@ -304,10 +305,12 @@ def main(argv: List[str] | None = None) -> int:
     args = p.parse_args(argv)
 
     date = args.snapshot_date or datetime.now(KST).date().isoformat()
-    top_file = os.path.join(args.data_dir, "snapshots", date, "topN.json")
+    
+    top_file = os.path.join("mvp/data/snapshots", date, "topN.json")
+    
     outdir = args.outdir.replace("{date}", date)
     names = load_name_map(args.data_dir)
-
+    
     headers = naver_headers()
     since_kst = datetime.fromisoformat(date).replace(tzinfo=KST) - timedelta(days=args.days - 1)
     tickers = load_top_tickers(top_file)

@@ -163,7 +163,7 @@ def main():
     # --- Data Loading ---
     print(f"--- Loading all data for {args.snapshot_date} ---")
     # base_path = f"/Users/baechangbin/codes/pythonWorkspace/AICapstoneDesign_2025_2/project_daily_asset_report/mvp/data/snapshots/{args.snapshot_date}"
-    base_path = os.path.join(os.getcwd(), "data", "snapshots", args.snapshot_date)
+    base_path = os.path.join(os.getcwd(), "mvp/data", "snapshots", args.snapshot_date)
     top_n_path = os.path.join(base_path, "topN.json")
     all_reports_path = os.path.join(base_path, "research", "all.jsonl")
 
@@ -172,7 +172,7 @@ def main():
     
     name_map = {}
     # for f in ["/Users/baechangbin/codes/pythonWorkspace/AICapstoneDesign_2025_2/project_daily_asset_report/mvp/data/KOSPI200.csv", "/Users/baechangbin/codes/pythonWorkspace/AICapstoneDesign_2025_2/project_daily_asset_report/mvp/data/KOSDDAQ150.csv"]:
-    for f in [os.path.join(os.getcwd(), "data", "KOSPI200.csv"), os.path.join(os.getcwd(), "data", "KOSDDAQ150.csv")]:
+    for f in [os.path.join(os.getcwd(), "mvp/data", "KOSPI200.csv"), os.path.join(os.getcwd(), "mvp/data", "KOSDDAQ150.csv")]:
         try:
             with open(f, 'r', encoding='cp949') as csvfile:
                 reader = csv.reader(csvfile)

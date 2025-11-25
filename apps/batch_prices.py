@@ -66,7 +66,7 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--dwmcode", type=int, default=1, choices=[1, 2, 3], help="1=day, 2=week, 3=month")
     p.add_argument("--exchgubun", default="K", help="Exchange code K/N/U (default K)")
     p.add_argument("--snapshot-date", default=os.environ.get("SNAPSHOT_DATE", ""), help="YYYY-MM-DD (default: env SNAPSHOT_DATE or today KST)")
-    p.add_argument("--outdir", default=os.path.join(args.data_dir, "snapshots", date, "prices"), help="Output dir pattern")
+    p.add_argument("--outdir", default="/Users/baechangbin/codes/pythonWorkspace/AICapstoneDesign_2025_2/AICapstoneDesign/mvp/data/snapshots/{date}/prices", help="Output dir pattern")
     p.add_argument("--sleep-sec", type=float, default=1.0, help="Sleep seconds between calls (rate limit)")
     p.add_argument("--skip-existing", action="store_true", help="Skip if CSV already exists")
     args = p.parse_args(argv)
