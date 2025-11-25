@@ -56,6 +56,33 @@ def unique_preserve_order(items: Iterable[str]) -> List[str]:
             out.append(x)
     return out
 
+def download_year_price(
+    client: LsOpenApiT1305, 
+    ticker: str, 
+    out_path: str, 
+    cnt: int, 
+    dwmcode: int, 
+    exchgubun: str
+) -> bool:
+    """
+    Downloads full history (cnt rows) for a ticker and saves it to out_path.
+    Returns True if successful, False otherwise.
+    """
+    try:
+        out = client.fetch_t1305(ticker, cnt=cnt, dwmcode=dwmcode, exchgubun=exchgubun)
+        rows = out.get("t1305OutBlock1", []) or []
+        
+        if not rows:
+            logger.warning("No data returned for new ticker {}", ticker)
+            return False
+            
+        write_csv(rows, out_path)
+        logger.info("NEW: Saved {} rows -> {}", len(rows), out_path)
+        return True
+    except Exception as e:
+        logger.error("FAIL (New Download) {}: {}", ticker, e)
+        return False
+
 
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(description="Batch fetch t1305 period prices for many tickers and save CSV snapshots.")
@@ -104,15 +131,14 @@ def main(argv: list[str] | None = None) -> int:
     fail = 0
     count = 0
     for i, t in enumerate(tickers, 1):
-        if count == 2:
+        if count == 3:
             break
         count+=1
-
         out_csv = os.path.join(outdir, f"{t}.csv")
-        # 1. Check Existing Data for Update Mode
-        existing_rows = []
-        last_date = None
-        
+
+        # ---------------------------------------------------------
+        # UPDATE EXISTING FILE
+        # ---------------------------------------------------------
         if os.path.exists(out_csv):
             if args.skip_existing:
                 logger.info("[{:04d}/{}] Skip existing (flag set) {}", i, len(tickers), out_csv)
@@ -120,42 +146,38 @@ def main(argv: list[str] | None = None) -> int:
                 continue
             
             try:
-                # Read existing CSV to find the last recorded date
-                # We assume the CSV is sorted descending (newest first)
+                # 1. Read existing file to find the last date
+                existing_rows = []
+                last_date = None
                 with open(out_csv, "r", encoding="utf-8") as f:
                     reader = csv.DictReader(f)
                     existing_rows = list(reader)
                 
                 if existing_rows:
+                    # Assumes file is sorted Descending (newest first)
                     last_date = existing_rows[0].get("date")
-            except Exception as e:
-                logger.warning("Failed to read existing file {}: {}", out_csv, e)
-                # If read fails, treat as new file (empty existing)
-                existing_rows = []
+                
+                if not last_date:
+                    # File exists but is empty or invalid -> Treat as fresh download
+                    logger.warning("[{:04d}/{}] Existing file empty/invalid, re-downloading...", i, len(tickers))
+                    if download_year_price(client, t, out_csv, args.cnt, args.dwmcode, args.exchgubun):
+                        ok += 1
+                    else:
+                        fail += 1
+                    time.sleep(max(0.0, args.sleep_sec))
+                    continue
 
-        # 2. Determine Fetch Count
-        # If we found a date, we only need the latest day (cnt=1) to check for an update.
-        # Otherwise, we fetch the full history requested (args.cnt).
-        fetch_cnt = 1 if last_date else args.cnt
-        
-        try:
-            out = client.fetch_t1305(t, cnt=fetch_cnt, dwmcode=args.dwmcode, exchgubun=args.exchgubun)
-            new_rows = out.get("t1305OutBlock1", []) or []
+                # 2. Fetch small buffer (e.g., 10 days) to catch missed updates (weekends/holidays)
+                # This is more robust than fetching just cnt=1
+                update_buffer_cnt = 10
+                out = client.fetch_t1305(t, cnt=update_buffer_cnt, dwmcode=args.dwmcode, exchgubun=args.exchgubun)
+                new_rows_buffer = out.get("t1305OutBlock1", []) or []
 
-            if not new_rows:
-                logger.warning("[{:04d}/{}] No data returned for {}", i, len(tickers), t)
-                fail += 1
-                continue
-
-            # 3. Save Logic
-            if last_date:
-                # UPDATE MODE
-                # Filter rows that are strictly newer than the last recorded date
-                # (Assuming API returns descending, new_rows[0] is the candidate)
-                rows_to_add = [r for r in new_rows if r.get("date") > last_date]
+                # 3. Filter for strictly new rows
+                rows_to_add = [r for r in new_rows_buffer if r.get("date") > last_date]
 
                 if rows_to_add:
-                    # Prepend new rows to existing rows to maintain descending order
+                    # Prepend new rows to existing rows
                     updated_rows = rows_to_add + existing_rows
                     write_csv(updated_rows, out_csv)
                     logger.info("[{:04d}/{}] UPDATE: Added {} new row(s) (Latest: {}) -> {}", 
@@ -164,16 +186,21 @@ def main(argv: list[str] | None = None) -> int:
                 else:
                     logger.info("[{:04d}/{}] SKIP: Up to date (Latest: {})", i, len(tickers), last_date)
                     ok += 1
-            else:
-                # FRESH DOWNLOAD MODE
-                write_csv(new_rows, out_csv)
-                logger.info("[{:04d}/{}] NEW: Saved {} rows -> {}", i, len(tickers), len(new_rows), out_csv)
-                ok += 1
 
-        except Exception as e:
-            logger.error("[{:04d}/{}] FAIL {}: {}", i, len(tickers), t, e)
-            fail += 1
-        
+            except Exception as e:
+                logger.error("[{:04d}/{}] FAIL (Update) {}: {}", i, len(tickers), t, e)
+                fail += 1
+
+        # ---------------------------------------------------------
+        # NEW FILE DOWNLOAD
+        # ---------------------------------------------------------
+        else:
+            logger.info("[{:04d}/{}] New file, downloading full history...", i, len(tickers))
+            if download_year_price(client, t, out_csv, args.cnt, args.dwmcode, args.exchgubun):
+                ok += 1
+            else:
+                fail += 1
+
         time.sleep(max(0.0, args.sleep_sec))
 
     logger.success("Done. success={}, fail={}, outdir={}", ok, fail, outdir)
