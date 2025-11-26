@@ -17,7 +17,7 @@ if CURRENT_DIR not in sys.path:
 try:
     from ls_t1305 import LsOpenApiT1305, write_csv
 except Exception as e:
-    logger.error("Failed to import ls_t1305: {}", e)
+    logger.error("Failed to import ls_api: {}", e)
     raise
 
 
@@ -129,11 +129,15 @@ def main(argv: list[str] | None = None) -> int:
 
     ok = 0
     fail = 0
+    
     count = 0
     for i, t in enumerate(tickers, 1):
-        if count == 3:
+        if count == 1:
             break
-        count+=1
+        count += 1
+        
+
+
         out_csv = os.path.join(outdir, f"{t}.csv")
 
         # ---------------------------------------------------------
