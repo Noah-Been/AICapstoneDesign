@@ -86,14 +86,13 @@ def download_year_price(
 
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(description="Batch fetch t1305 period prices for many tickers and save CSV snapshots.")
-    src = p.add_mutually_exclusive_group(required=True)
-    src.add_argument("--tickers", help="Path to text file with one ticker per line")
-    src.add_argument("--instruments-csv", help="Path to CSV with header including 'ticker'")
+    p.add_argument("--tickers", default="tickers.txt", help="Path to text file with one ticker per line (default: tickers.txt)")
+    p.add_argument("--instruments-csv", help="Path to CSV with header including 'ticker'")
     p.add_argument("--cnt", type=int, default=60, help="Rows per ticker (default 360)")
     p.add_argument("--dwmcode", type=int, default=1, choices=[1, 2, 3], help="1=day, 2=week, 3=month")
     p.add_argument("--exchgubun", default="K", help="Exchange code K/N/U (default K)")
     p.add_argument("--snapshot-date", default=os.environ.get("SNAPSHOT_DATE", ""), help="YYYY-MM-DD (default: env SNAPSHOT_DATE or today KST)")
-    p.add_argument("--outdir", default="/Users/baechangbin/codes/pythonWorkspace/AICapstoneDesign_2025_2/AICapstoneDesign/price_data", help="Output dir pattern")
+    p.add_argument("--outdir", default="data/price_data", help="Output dir pattern")
     p.add_argument("--sleep-sec", type=float, default=1.0, help="Sleep seconds between calls (rate limit)")
     p.add_argument("--skip-existing", action="store_true", help="Skip if CSV already exists")
     args = p.parse_args(argv)
@@ -113,10 +112,10 @@ def main(argv: list[str] | None = None) -> int:
 
     # Load tickers
     tickers: List[str]
-    if args.tickers:
-        tickers = load_tickers_from_txt(args.tickers)
-    else:
+    if args.instruments_csv:
         tickers = load_tickers_from_csv(args.instruments_csv)
+    else:
+        tickers = load_tickers_from_txt(args.tickers)
     tickers = unique_preserve_order([t.strip() for t in tickers if t and t.strip()])
 
     if not tickers:

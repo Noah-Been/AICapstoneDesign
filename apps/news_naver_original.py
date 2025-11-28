@@ -29,7 +29,7 @@ def load_top_tickers(top_file: str) -> List[str]:
 def load_name_map(data_dir: str) -> Dict[str, str]:
     import csv
     mapping: Dict[str, str] = {}
-    for fname in ("KOSPI200.csv", "KOSDDAQ150.csv"):
+    for fname in ("KOSPI_KOSDAQ.csv"):
         path = os.path.join(data_dir, fname)
         if not os.path.isfile(path):
             continue

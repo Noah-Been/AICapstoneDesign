@@ -11,7 +11,7 @@ from loguru import logger
 from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
 from dotenv import load_dotenv
 
-# Load .env from project root (one level up from apps/)
+# Load .env from project root
 # Ensure we can find the .env file regardless of where this script is run
 current_dir = os.path.dirname(os.path.abspath(__file__))
 project_root = os.path.dirname(current_dir)
@@ -24,18 +24,19 @@ def _bool_env(name: str, default: bool = True) -> bool:
         return default
     return str(val).strip().lower() not in {"0", "false", "no"}
 
-class LsOpenApiT3341:
+
+class LsOpenApiT3320:
     def __init__(self) -> None:
         self.base_url = os.environ.get("LS_BASE_URL", "https://openapi.ls-sec.co.kr:8080").rstrip("/")
         self.tr_path = os.environ.get("LS_TR_GATEWAY_PATH", "/stock/investinfo")
         self.app_key = os.environ.get("LS_APP_KEY")
         self.app_secret = os.environ.get("LS_SECRET_KEY")
         self.verify_ssl = _bool_env("LS_VERIFY_SSL", True)
-        self.mac_address = os.environ.get("LS_MAC_ADDRESS", "")  # Only required for corporate accounts
+        self.mac_address = os.environ.get("LS_MAC_ADDRESS", "")
         self.mock = _bool_env("LS_MOCK", False)
 
         if not self.mock and (not self.app_key or not self.app_secret):
-            raise RuntimeError("Missing LS_APP_KEY or LS_SECRET_KEY in environment.")
+            logger.warning("LS_APP_KEY or LS_SECRET_KEY not found in environment.")
 
         self._access_token: str | None = None
 
@@ -49,6 +50,7 @@ class LsOpenApiT3341:
         if self.mock:
             self._access_token = "MOCK_TOKEN"
             return self._access_token
+        
         url = f"{self.base_url}/oauth2/token"
         headers = {"Content-Type": "application/x-www-form-urlencoded"}
         data = {
@@ -57,10 +59,12 @@ class LsOpenApiT3341:
             "appsecretkey": self.app_secret,
             "scope": "oob",
         }
+        
         with httpx.Client(verify=self.verify_ssl, timeout=10.0) as client:
             resp = client.post(url, headers=headers, data=data)
             resp.raise_for_status()
             payload = resp.json()
+        
         token = payload.get("access_token")
         if not token:
             raise RuntimeError(f"No access_token in response: {payload}")
@@ -88,53 +92,43 @@ class LsOpenApiT3341:
             resp = client.post(url, headers=headers, json=body)
             return resp
 
-    def fetch_t3341(self, gubun: str = "0", gubun1: str = "1", gubun2: str = "1", idx: int = 0) -> Dict[str, Any]:
+    def fetch_t3320(self, gicode: str) -> Dict[str, Any]:
         """
-        Fetch financial data/rankings using TR t3341.
+        Fetch Company Summary/Financial Info using TR t3320.
         
         Args:
-            gubun (str): Market classification (0: All, 1: KOSPI, 2: KOSDAQ) - Default "0"
-            gubun1 (str): Ranking item code - Default "1" (Sales Growth?)
-            gubun2 (str): Period/Criterion - Default "1"
-            idx (int): Start index for pagination - Default 0
+            gicode (str): 6-digit stock code (e.g., "005930")
             
         Returns:
-            Dict containing the API response with 't3341OutBlock' and 't3341OutBlock1'.
+            Dict containing the API response with 't3320OutBlock' (Basic Info) 
+            and 't3320OutBlock1' (Financial Info).
         """
         if self.mock:
             return {
-                "t3341OutBlock": {"cnt": 2, "idx": 0},
-                "t3341OutBlock1": [
-                    {
-                        "hname": "MockCompany A",
-                        "shcode": "000001",
-                        "per": "10.5",
-                        "pbr": "1.0",
-                        "salesgrowth": 15.5
-                    },
-                    {
-                        "hname": "MockCompany B",
-                        "shcode": "000002",
-                        "per": "15.2",
-                        "pbr": "2.1",
-                        "salesgrowth": 20.1
-                    }
-                ],
                 "rsp_cd": "00000",
-                "rsp_msg": "Mock success"
+                "rsp_msg": "Mock Success",
+                "t3320OutBlock": {
+                    "company": "Mock Company",
+                    "price": 50000,
+                    "marketnm": "KOSPI"
+                },
+                "t3320OutBlock1": {
+                    "gicode": gicode,
+                    "per": "10.5",
+                    "pbr": "1.2",
+                    "eps": "5000",
+                    "roe": "12.5"
+                }
             }
 
         body = {
-            "t3341InBlock": {
-                "gubun": gubun,
-                "gubun1": gubun1,
-                "gubun2": gubun2,
-                "idx": idx
+            "t3320InBlock": {
+                "gicode": gicode
             }
         }
 
-        # Send request (tr_cd="t3341")
-        resp = self._tr_post("t3341", body)
+        # Send request (tr_cd="t3320")
+        resp = self._tr_post("t3320", body)
         
         try:
             resp.raise_for_status()
@@ -146,36 +140,34 @@ class LsOpenApiT3341:
 
         if data.get("rsp_cd") and data["rsp_cd"] != "00000":
             msg = data.get("rsp_msg", "unknown error")
-            raise RuntimeError(f"t3341 failed: {data['rsp_cd']} {msg}")
+            raise RuntimeError(f"t3320 failed: {data['rsp_cd']} {msg}")
 
         return data
 
+
 def write_csv(rows: List[Dict[str, Any]], path: str) -> None:
+    """
+    Writes a list of dictionaries to a CSV file.
+    Note: For t3320, 'rows' will typically be a list containing a single merged dictionary.
+    """
     if not rows:
         open(path, "w").close()
         return
     
-    # Preferred order for Financial/Ranking Data (t3341)
+    # Preferred column order for Company Info
     preferred = [
-        "rank",
-        "hname",
-        "shcode",
-        "per",
-        "pbr",
-        "roe",
-        "eps",
-        "bps",
-        "salesgrowth",
-        "operatingincomegrowt",
-        "ordinaryincomegrowth",
-        "liabilitytoequity",
-        "enterpriseratio",
-        "peg"
+        "company", "gicode", "price", "marketnm", "upgubunnm", # Basic Identity
+        "per", "pbr", "roe", "roa", "eps", "bps", "sps", "cps", # Valuation
+        "ebitda", "evebitda", "peg", "sales", "operatingincome", # Financials
+        "foreignratio", "cashrate", "capital", "sigavalue", # Stats
+        "gsyyyy", "gsmm", "gsym", # Fiscal Date
+        "baddress", "irtel", "homeurl" # Contact
     ]
     
-    # Get all keys from the first row, organize them: preferred first, then the rest
+    # Get all keys from the first row
     first_row_keys = rows[0].keys()
-    cols = [c for c in preferred if c in first_row_keys] + [c for c in first_row_keys if c not in preferred]
+    # Sort keys: preferred first, then alphabetical rest
+    cols = [c for c in preferred if c in first_row_keys] + sorted([c for c in first_row_keys if c not in preferred])
     
     os.makedirs(os.path.dirname(path), exist_ok=True)
     with open(path, "w", newline="", encoding="utf-8") as f:
@@ -186,38 +178,41 @@ def write_csv(rows: List[Dict[str, Any]], path: str) -> None:
 
 
 def main(argv: list[str] | None = None) -> int:
-    p = argparse.ArgumentParser(description="Fetch financial rankings via t3341 and optionally save CSV")
+    p = argparse.ArgumentParser(description="Fetch company summary and financials via t3320")
     
-    # Arguments specific to t3341
-    p.add_argument("--gubun", default="0", help="Market (0:All, 1:KOSPI, 2:KOSDAQ) [default: 0]")
-    p.add_argument("--gubun1", default="1", help="Ranking Item Code (e.g. 1=SalesGrowth) [default: 1]")
-    p.add_argument("--gubun2", default="1", help="Period/Criterion [default: 1]")
-    p.add_argument("--idx", type=int, default=0, help="Start Index [default: 0]")
-    
+    # Arguments specific to t3320
+    p.add_argument("--gicode", required=True, help="6-digit Stock Code (e.g. 005930)")
     p.add_argument("--csv", default="", help="Output CSV path (optional)")
+    
     args = p.parse_args(argv)
 
     try:
-        client = LsOpenApiT3341()
+        client = LsOpenApiT3320()
         token = client.fetch_access_token()
         logger.success("Access token acquired ({} chars)", len(token))
 
-        out = client.fetch_t3341(gubun=args.gubun, gubun1=args.gubun1, gubun2=args.gubun2, idx=args.idx)
+        out = client.fetch_t3320(gicode=args.gicode)
         
-        # t3341 returns list in 't3341OutBlock1'
-        rows = out.get("t3341OutBlock1", []) or []
-        metadata = out.get("t3341OutBlock", {})
+        # t3320 returns two separate blocks for one company.
+        # We merge them into a single dictionary for easier usage/CSV saving.
+        block_basic = out.get("t3320OutBlock", {}) or {}
+        block_financial = out.get("t3320OutBlock1", {}) or {}
         
-        logger.success("Fetched {} rows (Total count in metadata: {})", len(rows), metadata.get("cnt", "?"))
+        # Merge dictionaries (financial overwrites basic if keys collide, though they shouldn't)
+        merged_row = {**block_basic, **block_financial}
+        
+        if not merged_row:
+            logger.warning("No data returned for code {}", args.gicode)
+            return 0
+
+        logger.success("Fetched data for: {} ({})", merged_row.get('company'), merged_row.get('gicode'))
+        logger.info("Price: {}, PER: {}, PBR: {}, ROE: {}", 
+                    merged_row.get('price'), merged_row.get('per'), merged_row.get('pbr'), merged_row.get('roe'))
 
         if args.csv:
-            write_csv(rows, args.csv)
+            # write_csv expects a list of rows
+            write_csv([merged_row], args.csv)
             logger.info("Saved CSV: {}", args.csv)
-        else:
-            # Print top 5 for verification if no CSV requested
-            for i, r in enumerate(rows[:5]):
-                logger.info("row[{}]: {} ({}) - PER: {}, PBR: {}", 
-                            i, r.get('hname'), r.get('shcode'), r.get('per'), r.get('pbr'))
 
         return 0
     except Exception as e:

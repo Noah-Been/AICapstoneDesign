@@ -9,6 +9,7 @@ from datetime import datetime, timedelta, timezone
 from email.utils import parsedate_to_datetime
 from html import unescape
 from typing import Dict, List, Tuple, Any
+import csv
 
 import httpx
 from loguru import logger
@@ -26,29 +27,27 @@ def load_top_tickers(top_file: str) -> List[str]:
     return [t.zfill(6) for t in tickers]
 
 
-def load_name_map(data_dir: str) -> Dict[str, str]:
+def load_name_map(file_path: str) -> Dict[str, str]:
     import csv
     mapping: Dict[str, str] = {}
-    for fname in ("KOSPI200.csv", "KOSDDAQ150.csv"):
-        path = os.path.join(data_dir, fname)
-        if not os.path.isfile(path):
+    if not os.path.isfile(file_path):
+        return mapping
+    
+    for enc in ("cp949", "euc-kr", "utf-8", "latin1"):
+        try:
+            with open(file_path, "r", encoding=enc, newline="") as f:
+                reader = csv.reader(f)
+                next(reader, None)  # Skip header
+                for row in reader:
+                    if not row or len(row) < 2:
+                        continue
+                    code = row[0].strip().zfill(6)
+                    name = row[1].strip()
+                    if len(code) == 6 and code.isdigit() and name:
+                        mapping[code] = name
+            break
+        except Exception:
             continue
-        for enc in ("cp949", "euc-kr", "utf-8", "latin1"):
-            try:
-                with open(path, "r", encoding=enc, newline="") as f:
-                    reader = csv.reader(f)
-                    next(reader, None)  # Skip header
-                    for row in reader:
-                        if not row or len(row) < 2:
-                            continue
-                        code = row[0].strip().zfill(6)
-                        name = row[1].strip()
-                        if len(code) == 6 and code.isdigit() and name:
-                            mapping[code] = name
-                break
-            except Exception:
-                continue
-    print(mapping)
     return mapping
 
 
@@ -272,6 +271,24 @@ def collect_for_ticker(client: httpx.Client, ticker: str, name: str | None, sinc
     return results
 
 
+def write_csv(path: str, rows: List[Dict[str, Any]]) -> None:
+    if not rows:
+        return
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    # Define headers based on the keys in the first row, or a fixed set if preferred
+    # The keys in collect_for_ticker are: ticker, query, title, url, publisher, published_at, snippet, source, (content)
+    headers = ["ticker", "query", "title", "url", "publisher", "published_at", "snippet", "source", "content"]
+    
+    # Filter headers that actually exist in the data (e.g. content might be missing)
+    # But for CSV consistency, it's better to have fixed headers.
+    # Let's just use the keys from the first item + ensure 'content' is there if needed.
+    
+    with open(path, "w", encoding="utf-8-sig", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=headers, extrasaction="ignore")
+        writer.writeheader()
+        writer.writerows(rows)
+
+
 def write_jsonl(path: str, rows: List[Dict[str, Any]]) -> None:
     if not rows:
         try:
@@ -292,13 +309,13 @@ def main(argv: List[str] | None = None) -> int:
     dotenv_path = os.path.join(os.path.dirname(__file__), '..', '.env')
     load_dotenv(dotenv_path=dotenv_path)
 
-    p = argparse.ArgumentParser(description="Collect Naver News for Top N tickers and save JSONL per ticker")
+    p = argparse.ArgumentParser(description="Collect Naver News for All tickers and save CSV per ticker")
     p.add_argument("--snapshot-date", default=os.environ.get("SNAPSHOT_DATE", ""), help="YYYY-MM-DD; default env SNAPSHOT_DATE or today")
-    p.add_argument("--data-dir", default="mvp/data", help="Dir containing KOSPI200/KOSDDAQ150 CSV for names")
-    p.add_argument("--outdir", default="mvp/data/snapshots/{date}/news", help="Output dir pattern")
-    p.add_argument("--days", type=int, default=5, help="Window in days (default 5)")
-    p.add_argument("--per-query", type=int, default=40, help="Max items per query (name/ticker)")
-    p.add_argument("--topk", type=int, default=10, help="Max items per ticker after filtering (default 10)")
+    p.add_argument("--ticker-file", default="KOSPI_KOSDAQ.csv", help="Path to KOSPI_KOSDAQ.csv")
+    p.add_argument("--outdir", default="data/news_naver/{date}", help="Output dir pattern")
+    p.add_argument("--days", type=int, default=1, help="Window in days (default 1 for today)")
+    p.add_argument("--per-query", type=int, default=20, help="Max items per query (name/ticker)")
+    p.add_argument("--topk", type=int, default=100, help="Max items per ticker after filtering (default 100)")
     p.add_argument("--omit-snippet", action="store_true", help="Do not include API snippet text")
     p.add_argument("--require-both", action="store_true", help="Require both company name and ticker in title")
     p.add_argument("--with-body", action="store_true", help="Fetch article body and include as 'content'")
@@ -307,14 +324,15 @@ def main(argv: List[str] | None = None) -> int:
 
     date = args.snapshot_date or datetime.now(KST).date().isoformat()
     
-    top_file = os.path.join("mvp/data/snapshots", date, "topN.json")
-    
+    # outdir logic
     outdir = args.outdir.replace("{date}", date)
-    names = load_name_map(args.data_dir)
-    return 0
+    
+    # Load all tickers from specified file
+    names = load_name_map(args.ticker_file)
+    tickers = sorted(names.keys())
+    
     headers = naver_headers()
     since_kst = datetime.fromisoformat(date).replace(tzinfo=KST) - timedelta(days=args.days - 1)
-    tickers = load_top_tickers(top_file)
 
     logger.info("Collecting Naver News for {} tickers since {} (KST)", len(tickers), since_kst.date().isoformat())
 
@@ -327,7 +345,12 @@ def main(argv: List[str] | None = None) -> int:
                     require_both_in_title=args.require_both,
                     with_body=args.with_body,
                 )
-                rows = rows[: args.topk]
+                # No strict topk limit mentioned in new requirements, but user said "cutoff is maximum 20 news per query".
+                # The collect_for_ticker uses per_query.
+                # If we want to limit total results, we can use args.topk.
+                # User said "If it has too many news, then the cutoff should be set. The cutoff is maximum 20 news per query."
+                # This seems to refer to the API query limit.
+                
                 if args.omit_snippet:
                     for r in rows:
                         r.pop("snippet", None)
@@ -337,9 +360,14 @@ def main(argv: List[str] | None = None) -> int:
             except Exception as e:
                 logger.error("Fail {}: {}", t, e)
                 rows = []
-            out_path = os.path.join(outdir, f"{t}.jsonl")
-            write_jsonl(out_path, rows)
-            logger.info("[{:02d}/{}] {} items -> {}", i, len(tickers), len(rows), out_path)
+            
+            if rows:
+                out_path = os.path.join(outdir, f"{t}.csv")
+                write_csv(out_path, rows)
+                logger.info("[{:02d}/{}] {} items -> {}", i, len(tickers), len(rows), out_path)
+            else:
+                logger.debug("[{:02d}/{}] No items for {}", i, len(tickers), t)
+                
             time.sleep(max(0.0, args.sleep_sec))
 
     logger.success("Done. Output dir: {}", outdir)

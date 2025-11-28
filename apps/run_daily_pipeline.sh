@@ -20,12 +20,12 @@ APPS_DIR="$BASE_DIR/apps"
 
 # --- 1. Price Collection ---
 echo "\n[Step 1/5] Collecting stock prices..."
-"$PYTHON_EXEC" "$APPS_DIR/batch_prices.py" --snapshot-date "$SNAPSHOT_DATE" --tickers "$BASE_DIR/tickers.txt" --sleep-sec 1.1
+# "$PYTHON_EXEC" "$APPS_DIR/batch_prices.py" --snapshot-date "$SNAPSHOT_DATE" --tickers "$BASE_DIR/tickers.txt" --sleep-sec 1.1
 echo "[Step 1/5] Price collection complete."
 
 # --- 2. Signal Generation (Top N) ---
 echo "\n[Step 2/5] Generating Top N signals..."
-"$PYTHON_EXEC" "$APPS_DIR/signals.py" --snapshot-date "$SNAPSHOT_DATE"
+# "$PYTHON_EXEC" "$APPS_DIR/signals.py" --snapshot-date "$SNAPSHOT_DATE"
 echo "[Step 2/5] Signal generation complete."
 
 # --- 3. Brokerage Reports ---
@@ -43,7 +43,7 @@ echo "[Step 4/5] News and blog collection complete."
 
 # --- 5. Daily Report Generation ---
 echo "\n[Step 5/5] Generating final daily report..."
-"$PYTHON_EXEC" "$APPS_DIR/generate_report.py" --snapshot-date "$SNAPSHOT_DATE"
+# "$PYTHON_EXEC" "$APPS_DIR/generate_report.py" --snapshot-date "$SNAPSHOT_DATE"
 echo "[Step 5/5] Daily report generation complete."
 
 echo "============================================================"

@@ -42,14 +42,15 @@ for round in $(seq 1 $attempts); do
   rc1=$?
   echo "[run_top_crawl] News rc=$rc1"
 
-  echo "[run_top_crawl] Round $round/$attempts: Blogs with body"
-  $PY apps/blog_naver.py \
-    --snapshot-date "$SNAPSHOT_DATE" \
-    --data-dir "$DATA_DIR" \
-    --outdir "$BLOG_OUT" \
-    --days 7 --per-query 80 --topk 15 --omit-snippet --with-body --sleep-sec 0.3
-  rc2=$?
-  set -e
+  # echo "[run_top_crawl] Round $round/$attempts: Blogs with body"
+  # $PY apps/blog_naver.py \
+  #   --snapshot-date "$SNAPSHOT_DATE" \
+  #   --data-dir "$DATA_DIR" \
+  #   --outdir "$BLOG_OUT" \
+  #   --days 7 --per-query 80 --topk 15 --omit-snippet --with-body --sleep-sec 0.3
+  # rc2=$?
+  # set -e
+  rc2=0
 
   echo "[run_top_crawl] round $round done rc1=$rc1 rc2=$rc2"
 
@@ -60,9 +61,13 @@ for round in $(seq 1 $attempts); do
   find "$date_path" -type f -name '*.jsonl' -size 0 -delete 2>/dev/null || true
   find "$date_path_b" -type f -name '*.jsonl' -size 0 -delete 2>/dev/null || true
   ok_news=$(find "$date_path" -type f -name '*.jsonl' -size +10c 2>/dev/null | wc -l)
-  ok_blog=$(find "$date_path_b" -type f -name '*.jsonl' -size +10c 2>/dev/null | wc -l)
-  echo "[run_top_crawl] have news=$ok_news blog=$ok_blog (want ~10 each)"
-  if [[ "$ok_news" -ge 8 && "$ok_blog" -ge 8 ]]; then
+  # ok_blog=$(find "$date_path_b" -type f -name '*.jsonl' -size +10c 2>/dev/null | wc -l)
+  # echo "[run_top_crawl] have news=$ok_news blog=$ok_blog (want ~10 each)"
+  # if [[ "$ok_news" -ge 8 && "$ok_blog" -ge 8 ]]; then
+  #   echo "[run_top_crawl] sufficient coverage achieved; exiting"
+  #   exit 0
+  echo "[run_top_crawl] have news=$ok_news (want ~8)"
+  if [[ "$ok_news" -ge 8 ]]; then
     echo "[run_top_crawl] sufficient coverage achieved; exiting"
     exit 0
   fi
