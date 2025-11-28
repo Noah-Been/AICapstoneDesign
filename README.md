@@ -19,6 +19,7 @@
 ## 4. append_financial_data.py
 - 재무 데이터를 저장합니다
 - 수집된 재무 데이터는 data/financial_data/{ticker}/{최근 재무 결산 년월}.csv에 저장됩니다
+- 수집된 재무 데이터는 https://openapi.ls-sec.co.kr/apiservice?group_id=73142d9f-1983-48d2-8543-89b75535d34c&api_id=580d2770-a7a9-49e3-9ec1-49ed8bc734a2 페이지의 t3320 TR코드의 응답 결과입니다.
 
 ## 5. 코드 실행을 위해 필요한 파일
 - tickers.txt
