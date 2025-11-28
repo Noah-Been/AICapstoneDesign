@@ -337,7 +337,11 @@ def main(argv: List[str] | None = None) -> int:
     logger.info("Collecting Naver News for {} tickers since {} (KST)", len(tickers), since_kst.date().isoformat())
 
     with httpx.Client(headers=headers, timeout=10.0) as client:
+        count = 0
         for i, t in enumerate(tickers, 1):
+            if count == 1:
+                break
+            count += 1
             name = names.get(t)
             try:
                 rows = collect_for_ticker(
